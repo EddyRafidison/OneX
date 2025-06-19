@@ -151,15 +151,9 @@ async function contact(req, res) {
   const User = user.replaceAll(" ", "+");
   const Pswd = pswd.replaceAll(" ", "+");
   if (!verifyUA(req, User, Pswd, tkn)) {
-    return res.json({ status: "forbidden request" });
+    return res.json({ status: "incorrect auth or forbidden request" });
   }
   try {
-    const rows = await pool.promiseQuery("SELECT password,email FROM auths WHERE username=?", [User]);
-    if (!rows.length) throw 0;
-    const [encPwd, email] = [rows[0].password, rows[0].email];
-    if (decrypt(encPwd, process.env.DB_PSWD) !== Pswd) {
-      return res.json({ status: "error" });
-    }
     await transporter.sendMail({
       from: process.env.SERV_MAIL,
       to: process.env.SERV_MAIL,
@@ -178,13 +172,9 @@ async function feed(req, res) {
   const User = user.replaceAll(" ", "+");
   const Pswd = pswd.replaceAll(" ", "+");
   if (!verifyUA(req, User, Pswd, tkn)) {
-    return res.json({ feed: "forbidden request" });
+    return res.json({ feed: "incorrect auth or forbidden request" });
   }
   try {
-    const row = await pool.promiseQuery("SELECT password FROM auths WHERE username=?", [User]);
-    if (!row.length || decrypt(row[0].password, process.env.DB_PSWD)!==Pswd) {
-      return res.json({ feed: "incorrect auth" });
-    }
     const [date] = getDate();
     const notifs = await pool.promiseQuery(
       "SELECT * FROM notifs WHERE record_date=? ORDER BY id DESC", [date]
@@ -200,11 +190,9 @@ async function userLastStock(req, res) {
   const { user, pswd, tkn } = req.body;
   const User = user.replaceAll(" ", "+"), Pswd = pswd.replaceAll(" ", "+");
   if (!verifyUA(req, User, Pswd, tkn)) {
-    return res.json({ msg: "forbidden request" });
+    return res.json({ msg: "incorrect auth or forbidden request" });
   }
   try {
-    const [{ password:encPwd }] = await pool.promiseQuery("SELECT password FROM auths WHERE username=?", [User]);
-    if (decrypt(encPwd, process.env.DB_PSWD)!==Pswd) throw 0;
     const [{ unit_price }] = await pool.promiseQuery("SELECT MAX(unit_price) AS unit_price FROM common", []);
     const [{ balance }]   = await pool.promiseQuery("SELECT balance FROM users_stock WHERE username=?", [User]);
     const value = new BigNumber(balance).multipliedBy(unit_price).toFixed();
@@ -219,11 +207,9 @@ async function transactionsHistory(req, res) {
   const { user, pswd, days, tkn } = req.body;
   const User = user.replaceAll(" ", "+"), Pswd = pswd.replaceAll(" ", "+");
   if (!verifyUA(req, User, Pswd, tkn)) {
-    return res.json({ trans: "forbidden request" });
+    return res.json({ trans: "incorrect auth or forbidden request" });
   }
   try {
-    const [{ password:encPwd }] = await pool.promiseQuery("SELECT password FROM auths WHERE username=?", [User]);
-    if (decrypt(encPwd, process.env.DB_PSWD)!==Pswd) throw 0;
     const [daybefore] = getDate(+days);
     const rows = await pool.promiseQuery(
       `SELECT * FROM activities
@@ -243,10 +229,10 @@ async function nearTransfer(req, res) {
   if (!P2P_ALLOWED) return res.json({ transf: "not yet allowed" });
   const S = sender.replaceAll(" ","+"), P = pswd.replaceAll(" ","+"), D = dest.replaceAll(" ","+");
   if (!verifyUA(req, S, P, tkn)) {
-    return res.json({ transf: "forbidden request" });
+    return res.json({ transf: "incorrect auth or forbidden request" });
   }
   const am = +amount;
-  if (am < 10000) return res.json({ warning: "abusive operation" });
+  if (am < 10000) return res.json({ warning: "value too low" });
   if (S===D)    return res.json({ transf:"failed" });
 
   try {
@@ -313,13 +299,9 @@ async function nearTransfer(req, res) {
 async function modifyPwd(req, res) {
   const { user, pswd1, pswd2, tkn } = req.body;
   const U = user.replaceAll(" ","+"), P1=pswd1.replaceAll(" ","+"), P2=pswd2.replaceAll(" ","+");
-  if (!verifyUA(req, U, P1, tkn)) return res.json({ auth:"forbidden request" });
+  if (!verifyUA(req, U, P1, tkn)) return res.json({ auth:"incorrect auth or forbidden request" });
 
   try {
-    const [{ password:encPwd }] = await pool.promiseQuery("SELECT password FROM auths WHERE username=?", [U]);
-    if (decrypt(encPwd, process.env.DB_PSWD)!==P1) {
-      return res.json({ auth:"incorrect" });
-    }
     await pool.promiseQuery(
       "UPDATE auths SET password=? WHERE username=?",
       [encrypt(P2, process.env.DB_PSWD), U]
@@ -334,11 +316,9 @@ async function modifyPwd(req, res) {
 async function deleteUser(req, res) {
   const { user, pswd, tkn } = req.body;
   const U = user.replaceAll(" ","+"), P = pswd.replaceAll(" ","+");
-  if (!verifyUA(req, U, P, tkn)) return res.json({ auth:"forbidden request" });
+  if (!verifyUA(req, U, P, tkn)) return res.json({ auth:"incorrect auth or forbidden request" });
 
   try {
-    const [{ password:encPwd }] = await pool.promiseQuery("SELECT password FROM auths WHERE username=?", [U]);
-    if (decrypt(encPwd, process.env.DB_PSWD)!==P) throw 0;
     // Valeur du compte
     const [{ unit_price:p }]   = await pool.promiseQuery("SELECT MAX(unit_price) AS p FROM common", []);
     const [{ balance:b }]       = await pool.promiseQuery("SELECT balance FROM users_stock WHERE username=?", [U]);
@@ -371,11 +351,9 @@ async function recoverAccount(req, res) {
 async function modifySeed(req, res) {
   const { user, pswd, seed, tkn } = req.body;
   const U = user.replaceAll(" ","+"), P=pswd.replaceAll(" ","+"), S=seed.replaceAll(" ","+");
-  if (!verifyUA(req, U, P, tkn)) return res.json({ auth:"forbidden request" });
+  if (!verifyUA(req, U, P, tkn)) return res.json({ auth:"incorrect auth or forbidden request" });
 
   try {
-    const [{ password:encPwd }] = await pool.promiseQuery("SELECT password FROM auths WHERE username=?", [U]);
-    if (decrypt(encPwd, process.env.DB_PSWD)!==P) throw 0;
     await pool.promiseQuery("UPDATE auths SET seed=? WHERE username=?", [
       encrypt(S, process.env.DB_PSWD), U
     ]);
