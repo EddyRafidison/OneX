@@ -193,13 +193,42 @@ async function userLastStock(req, res) {
     return res.json({ msg: "incorrect auth or forbidden request" });
   }
   try {
-    const [{ unit_price }] = await pool.promiseQuery("SELECT MAX(unit_price) AS unit_price FROM common", []);
+    const lastUPrice = await lastUnitPrice(User);
     const [{ balance }]   = await pool.promiseQuery("SELECT balance FROM users_stock WHERE username=?", [User]);
-    const value = new BigNumber(balance).multipliedBy(unit_price).toFixed();
+    const value = new BigNumber(balance).multipliedBy(lastUPrice).toFixed();
     res.json({ msg: value, fees: FEES });
   } catch {
     res.json({ msg: "error" });
   }
+}
+
+// Check last appropriate unit price for the user
+async function lastUnitPrice(user) {
+    let price = 1;
+
+    try {
+        if (isActive(user)) {
+            const [[{ unit_price } = {}]] = await pool.promiseQuery(
+                "SELECT MAX(unit_price) AS unit_price FROM common"
+            );
+            if (unit_price != null) price = unit_price;
+        } else {
+            const [[{ unit_price } = {}]] = await pool.promiseQuery(
+                "SELECT unit_price FROM activities WHERE username = ? ORDER BY id DESC LIMIT 1",
+                [user]
+            );
+            if (unit_price != null) price = unit_price;
+        }
+    } catch (error) {
+        console.error("Erreur lors de la récupération du prix unitaire :", error);
+    }
+
+    return price;
+}
+
+// Check if user is an active one
+async function isActive(user){
+    
 }
 
 // — POST /app/transactions-history
