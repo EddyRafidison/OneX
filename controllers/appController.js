@@ -2,19 +2,19 @@ const path = require("path");
 const fs = require("fs");
 const geoip = require("geoip-country");
 const BigNumber = require("bignumber.js");
-const { pool }     = require("../config/database");
-const transporter  = require("../config/mailer");
+const { pool } = require("../config/database");
+const transporter = require("../config/mailer");
 const { encrypt, decrypt } = require("../utils/encryption");
-const { getDate }         = require("../utils/dateUtils");
+const { getDate } = require("../utils/dateUtils");
 const { getUserPrefix, createUserSuffix, createTransactionId } = require("../utils/idUtils");
 
-const ONE_X     = "ONEX";
-const P2P_ALLOWED       = process.env.P2P_ALLOWED === "true";
+const ONE_X = "ONEX";
+const P2P_ALLOWED = process.env.P2P_ALLOWED === "true";
 const MAX_STOCK_DEFAULT = +process.env.MAX_STOCK_DEFAULT;
-const FEES              = +process.env.FEES;
-const APP_VERSION       = process.env.APP_VERSION;
-const WELCOME_BONUS     = +process.env.WELCOME_BONUS;
-const FIRST_CLIENTS     = +process.env.FIRST_WELCOME_CLIENTS;
+const FEES = +process.env.FEES;
+const APP_VERSION = process.env.APP_VERSION;
+const WELCOME_BONUS = +process.env.WELCOME_BONUS;
+const FIRST_CLIENTS = +process.env.FIRST_WELCOME_CLIENTS;
 
 // Helper pour vérifier token UA
 function verifyUA(req, user, pswd, tkn) {
@@ -30,7 +30,7 @@ async function downloadApk(req, res, next) {
 
 // — POST /app/check-app-version
 function checkAppVersion(_req, res) {
-  const sizeMB = fs.statSync("./OneX.apk").size / (1024*1024);
+  const sizeMB = fs.statSync("./OneX.apk").size / (1024 * 1024);
   res.json({ version: APP_VERSION, size: sizeMB.toFixed(2) });
 }
 
@@ -38,16 +38,16 @@ function checkAppVersion(_req, res) {
 async function signup(req, res) {
   try {
     const { email, birth, addr, name, cni, pswd, seed, cniimg1, cniimg2 } = req.body;
-    const ip   = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-    const geo  = geoip.lookup(ip);
+    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+    const geo = geoip.lookup(ip);
     if (!geo || geo.country !== "MG") return res.json({ msg: "unsupported country" });
 
     const UserPrefix = getUserPrefix(name);
     const UserSuffix = createUserSuffix(cni);
-    const username   = `${UserPrefix}-${UserSuffix}`.toUpperCase();
-    const encPwd     = encrypt(pswd.replaceAll(" ","+"), process.env.DB_PSWD);
-    const encSeed    = encrypt(seed.replaceAll(" ","+"), process.env.DB_PSWD);
-    const encCni     = encrypt(cni.replaceAll(" ","+"), process.env.DB_PSWD);
+    const username = `${UserPrefix}-${UserSuffix}`.toUpperCase();
+    const encPwd = encrypt(pswd.replaceAll(" ", "+"), process.env.DB_PSWD);
+    const encSeed = encrypt(seed.replaceAll(" ", "+"), process.env.DB_PSWD);
+    const encCni = encrypt(cni.replaceAll(" ", "+"), process.env.DB_PSWD);
     const [rDate, rTime] = getDate();
 
     // Vérifier unicité
@@ -59,12 +59,12 @@ async function signup(req, res) {
       `INSERT INTO auths
          (username,password,name,email,birthdate,cni,address,seed,status,record_date,record_time)
        VALUES (?,?,?,?,?,?,?,?,0,?,?);`,
-      [username,encPwd,name,email,birth,encCni,addr,encSeed,rDate,rTime]
+      [username, encPwd, name, email, birth, encCni, addr, encSeed, rDate, rTime]
     );
     await pool.promiseQuery(
       `INSERT INTO users_stock (username,balance,record_date,record_time)
        VALUES (?,?,?,?)`,
-      [username,0,rDate,rTime]
+      [username, 0, rDate, rTime]
     );
     await pool.promiseQuery("COMMIT");
 
@@ -91,7 +91,7 @@ async function signup(req, res) {
 
     res.json({ msg: "ok" });
   } catch (e) {
-    await pool.promiseQuery("ROLLBACK").catch(()=>{});
+    await pool.promiseQuery("ROLLBACK").catch(() => { });
     console.error(e);
     res.json({ msg: "failed" });
   }
@@ -110,12 +110,12 @@ async function signin(req, res) {
     }
     // Récupérer pwd & seed encodés
     const rows = await pool.promiseQuery("SELECT password,seed,status,id FROM auths WHERE username=?", [User]);
-    if (!rows.length) return res.json({ msg:"error", ua:"" });
+    if (!rows.length) return res.json({ msg: "error", ua: "" });
     const [encPwd, encSeed, status, id] = [rows[0].password, rows[0].seed, rows[0].status, rows[0].id];
     if (decrypt(encPwd, process.env.DB_PSWD) !== Pswd) {
       return res.json({ msg: "incorrect password", ua: "" });
     }
-    if (recon==="1" && decrypt(encSeed, process.env.DB_PSWD)!==seed) {
+    if (recon === "1" && decrypt(encSeed, process.env.DB_PSWD) !== seed) {
       return res.json({ msg: "incorrect seed", ua: "" });
     }
     // Générer nouveau token UA
@@ -128,7 +128,7 @@ async function signin(req, res) {
         const [d, t] = getDate();
         const ref = createTransactionId(ONE_X);
         await pool.promiseQuery(
-          `UPDATE users_stock SET balance=? WHERE username=?`, 
+          `UPDATE users_stock SET balance=? WHERE username=?`,
           [WELCOME_BONUS, User]
         );
         await pool.promiseQuery(
@@ -194,7 +194,7 @@ async function userLastStock(req, res) {
   }
   try {
     const lastUPrice = await lastUnitPrice(User);
-    const [{ balance }]   = await pool.promiseQuery("SELECT balance FROM users_stock WHERE username=?", [User]);
+    const [{ balance }] = await pool.promiseQuery("SELECT balance FROM users_stock WHERE username=?", [User]);
     const value = new BigNumber(balance).multipliedBy(lastUPrice).toFixed();
     res.json({ msg: value, fees: FEES });
   } catch {
@@ -204,31 +204,31 @@ async function userLastStock(req, res) {
 
 // Check last appropriate unit price for the user
 async function lastUnitPrice(user) {
-    let price = 1;
+  let price = 1;
 
-    try {
-        if (isActive(user)) {
-            const [[{ unit_price } = {}]] = await pool.promiseQuery(
-                "SELECT MAX(unit_price) AS unit_price FROM common"
-            );
-            if (unit_price != null) price = unit_price;
-        } else {
-            const [[{ unit_price } = {}]] = await pool.promiseQuery(
-                "SELECT unit_price FROM activities WHERE username = ? ORDER BY id DESC LIMIT 1",
-                [user]
-            );
-            if (unit_price != null) price = unit_price;
-        }
-    } catch (error) {
-        console.error("Erreur lors de la récupération du prix unitaire :", error);
+  try {
+    if (isActive(user)) {
+      const [[{ unit_price } = {}]] = await pool.promiseQuery(
+        "SELECT MAX(unit_price) AS unit_price FROM common"
+      );
+      if (unit_price != null) price = unit_price;
+    } else {
+      const [[{ unit_price } = {}]] = await pool.promiseQuery(
+        "SELECT unit_price FROM activities WHERE username = ? ORDER BY id DESC LIMIT 1",
+        [user]
+      );
+      if (unit_price != null) price = unit_price;
     }
+  } catch (error) {
+    console.error("Erreur lors de la récupération du prix unitaire :", error);
+  }
 
-    return price;
+  return price;
 }
 
 // Check if user is an active one
-async function isActive(user){
-    
+async function isActive(user) {
+
 }
 
 // — POST /app/transactions-history
@@ -256,39 +256,39 @@ async function transactionsHistory(req, res) {
 async function nearTransfer(req, res) {
   const { sender, pswd, dest, amount, tkn } = req.body;
   if (!P2P_ALLOWED) return res.json({ transf: "not yet allowed" });
-  const S = sender.replaceAll(" ","+"), P = pswd.replaceAll(" ","+"), D = dest.replaceAll(" ","+");
+  const S = sender.replaceAll(" ", "+"), P = pswd.replaceAll(" ", "+"), D = dest.replaceAll(" ", "+");
   if (!verifyUA(req, S, P, tkn)) {
     return res.json({ transf: "incorrect auth or forbidden request" });
   }
   const am = +amount;
   if (am < 10000) return res.json({ warning: "value too low" });
-  if (S===D)    return res.json({ transf:"failed" });
+  if (S === D) return res.json({ transf: "failed" });
 
   try {
     // Récupérer status expéditeur
-    const [{ status:stS }] = await pool.promiseQuery("SELECT status FROM auths WHERE username=?", [S]);
-    if (stS<1) throw 0;
+    const [{ status: stS }] = await pool.promiseQuery("SELECT status FROM auths WHERE username=?", [S]);
+    if (stS < 1) throw 0;
     // Récupérer prix courant
-    const [{ unit_price:p }] = await pool.promiseQuery("SELECT MAX(unit_price) AS unit_price FROM common", []);
+    const [{ unit_price: p }] = await pool.promiseQuery("SELECT MAX(unit_price) AS unit_price FROM common", []);
     const Amount = new BigNumber(am).dividedBy(p);
-    const fees       = Amount.multipliedBy(FEES).dividedBy(100);
-    const minReqBal  = Amount.plus(fees);
+    const fees = Amount.multipliedBy(FEES).dividedBy(100);
+    const minReqBal = Amount.plus(fees);
     // Check balance sender
-    const [{ balance:balS }] = await pool.promiseQuery("SELECT balance FROM users_stock WHERE username=?", [S]);
-    if (new BigNumber(balS).lt(minReqBal)) return res.json({ transf:"insufficient balance" });
+    const [{ balance: balS }] = await pool.promiseQuery("SELECT balance FROM users_stock WHERE username=?", [S]);
+    if (new BigNumber(balS).lt(minReqBal)) return res.json({ transf: "insufficient balance" });
     // Check dest exists & status
-    const [{ status:stD }] = await pool.promiseQuery("SELECT status FROM auths WHERE username=?", [D]);
-    if (stD<1) throw 0;
+    const [{ status: stD }] = await pool.promiseQuery("SELECT status FROM auths WHERE username=?", [D]);
+    if (stD < 1) throw 0;
     // Check stock max
-    const [{ balance:balD }] = await pool.promiseQuery("SELECT balance FROM users_stock WHERE username=?", [D]);
+    const [{ balance: balD }] = await pool.promiseQuery("SELECT balance FROM users_stock WHERE username=?", [D]);
     if (new BigNumber(balD).plus(Amount).multipliedBy(p).gt(MAX_STOCK_DEFAULT)) {
-      return res.json({ transf:"unsupported" });
+      return res.json({ transf: "unsupported" });
     }
 
     // Transaction atomique
     const conn = await pool.promiseQuery("BEGIN");
     const [d, t] = getDate();
-    const ref    = createTransactionId(S);
+    const ref = createTransactionId(S);
     await pool.promiseQuery(
       `INSERT INTO activities
          (sender,receiver,type,amount,unit_price,fees,reference,record_date,record_time)
@@ -304,12 +304,12 @@ async function nearTransfer(req, res) {
       [Amount.toFixed(), d, t, D]
     );
     // Mise à jour common (sharedFees)
-    const [{ total_units_price:tp, backed_units:bu }] =
+    const [{ total_units_price: tp, backed_units: bu }] =
       await pool.promiseQuery("SELECT * FROM common ORDER BY id DESC LIMIT 1", []);
     const sharedFees = fees.multipliedBy(3).div(4);
-    const newTP      = new BigNumber(tp).plus(sharedFees);
-    const newBU      = new BigNumber(bu).plus(fees);
-    const newPrice   = newTP.div(tp).multipliedBy(p);
+    const newTP = new BigNumber(tp).plus(sharedFees);
+    const newBU = new BigNumber(bu).plus(fees);
+    const newPrice = newTP.div(tp).multipliedBy(p);
     await pool.promiseQuery(
       `INSERT INTO common (total_units_price,unit_price,backed_units,record_date,record_time)
        VALUES(?,?,?,?,?)`,
@@ -318,7 +318,7 @@ async function nearTransfer(req, res) {
     await pool.promiseQuery("COMMIT");
     res.json({ transf: "sent" });
   } catch (e) {
-    await pool.promiseQuery("ROLLBACK").catch(()=>{});
+    await pool.promiseQuery("ROLLBACK").catch(() => { });
     console.error(e);
     res.json({ transf: "failed" });
   }
@@ -327,68 +327,68 @@ async function nearTransfer(req, res) {
 // — POST /app/modify-pin-or-password
 async function modifyPwd(req, res) {
   const { user, pswd1, pswd2, tkn } = req.body;
-  const U = user.replaceAll(" ","+"), P1=pswd1.replaceAll(" ","+"), P2=pswd2.replaceAll(" ","+");
-  if (!verifyUA(req, U, P1, tkn)) return res.json({ auth:"incorrect auth or forbidden request" });
+  const U = user.replaceAll(" ", "+"), P1 = pswd1.replaceAll(" ", "+"), P2 = pswd2.replaceAll(" ", "+");
+  if (!verifyUA(req, U, P1, tkn)) return res.json({ auth: "incorrect auth or forbidden request" });
 
   try {
     await pool.promiseQuery(
       "UPDATE auths SET password=? WHERE username=?",
       [encrypt(P2, process.env.DB_PSWD), U]
     );
-    res.json({ auth:"updated" });
+    res.json({ auth: "updated" });
   } catch {
-    res.json({ auth:"error" });
+    res.json({ auth: "error" });
   }
 }
 
 // — POST /app/delete-user
 async function deleteUser(req, res) {
   const { user, pswd, tkn } = req.body;
-  const U = user.replaceAll(" ","+"), P = pswd.replaceAll(" ","+");
-  if (!verifyUA(req, U, P, tkn)) return res.json({ auth:"incorrect auth or forbidden request" });
+  const U = user.replaceAll(" ", "+"), P = pswd.replaceAll(" ", "+");
+  if (!verifyUA(req, U, P, tkn)) return res.json({ auth: "incorrect auth or forbidden request" });
 
   try {
     // Valeur du compte
-    const [{ unit_price:p }]   = await pool.promiseQuery("SELECT MAX(unit_price) AS p FROM common", []);
-    const [{ balance:b }]       = await pool.promiseQuery("SELECT balance FROM users_stock WHERE username=?", [U]);
+    const [{ unit_price: p }] = await pool.promiseQuery("SELECT MAX(unit_price) AS p FROM common", []);
+    const [{ balance: b }] = await pool.promiseQuery("SELECT balance FROM users_stock WHERE username=?", [U]);
     if (new BigNumber(b).multipliedBy(p).gt(5000)) {
-      return res.json({ auth:"failed, balance > 5000" });
+      return res.json({ auth: "failed, balance > 5000" });
     }
     await pool.promiseQuery("DELETE FROM auths WHERE username=?", [U]);
-    res.json({ auth:"deleted" });
+    res.json({ auth: "deleted" });
   } catch {
-    res.json({ auth:"error" });
+    res.json({ auth: "error" });
   }
 }
 
 // — POST /app/recover-account
 async function recoverAccount(req, res) {
   const { user, seed } = req.body;
-  const U = user.replaceAll(" ","+"), S = seed.replaceAll(" ","+");
+  const U = user.replaceAll(" ", "+"), S = seed.replaceAll(" ", "+");
   try {
-    const [{ seed:encSeed }] = await pool.promiseQuery("SELECT seed FROM auths WHERE username=?", [U]);
-    if (decrypt(encSeed, process.env.DB_PSWD)!==S) throw 0;
+    const [{ seed: encSeed }] = await pool.promiseQuery("SELECT seed FROM auths WHERE username=?", [U]);
+    if (decrypt(encSeed, process.env.DB_PSWD) !== S) throw 0;
     const newPwd = encrypt("123456", process.env.DB_PSWD);
     await pool.promiseQuery("UPDATE auths SET password=? WHERE username=?", [newPwd, U]);
-    res.json({ auth:"updated" });
+    res.json({ auth: "updated" });
   } catch {
-    res.json({ auth:"incorrect" });
+    res.json({ auth: "incorrect" });
   }
 }
 
 // — POST /app/modify-seed
 async function modifySeed(req, res) {
   const { user, pswd, seed, tkn } = req.body;
-  const U = user.replaceAll(" ","+"), P=pswd.replaceAll(" ","+"), S=seed.replaceAll(" ","+");
-  if (!verifyUA(req, U, P, tkn)) return res.json({ auth:"incorrect auth or forbidden request" });
+  const U = user.replaceAll(" ", "+"), P = pswd.replaceAll(" ", "+"), S = seed.replaceAll(" ", "+");
+  if (!verifyUA(req, U, P, tkn)) return res.json({ auth: "incorrect auth or forbidden request" });
 
   try {
     await pool.promiseQuery("UPDATE auths SET seed=? WHERE username=?", [
       encrypt(S, process.env.DB_PSWD), U
     ]);
-    res.json({ auth:"updated" });
+    res.json({ auth: "updated" });
   } catch {
-    res.json({ auth:"incorrect" });
+    res.json({ auth: "incorrect" });
   }
 }
 
