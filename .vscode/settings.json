@@ -1,0 +1,34 @@
+{
+    "sqltools.connections": [
+        {
+            "mysqlOptions": {
+                "authProtocol": "default",
+                "enableSsl": "Disabled"
+            },
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 3306,
+            "driver": "MariaDB",
+            "database": "onexdb",
+            "username": "root",
+            "group": "mysql",
+            "name": "OneX",
+            "password": "eddyraf"
+        },
+        {
+            "mysqlOptions": {
+                "authProtocol": "default",
+                "enableSsl": "Disabled"
+            },
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 3306,
+            "driver": "MariaDB",
+            "database": "onexdb",
+            "name": "mysql",
+            "group": "mysql",
+            "username": "root",
+            "password": "eddyraf"
+        }
+    ]
+}

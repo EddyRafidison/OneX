@@ -1,24 +1,26 @@
-const mysql = require("mysql2");
-const { parseDateTime } = require("../utils/dateUtils");
+const mysql = require('mysql2')
+const { parseDateTime } = require('../utils/dateUtils')
 
 const pool = mysql.createPool({
-  host:            process.env.DB_HOST,
-  user:            process.env.DB_USER,
-  password:        process.env.DB_PSWD,
-  database:        process.env.DB_NAME,
-  port:            +process.env.DB_PORT,
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PSWD,
+  database: process.env.DB_NAME,
+  port: +process.env.DB_PORT,
   connectionLimit: 200,
   multipleStatements: true,
-  waitForConnections: true,
-});
+  waitForConnections: true
+})
 
 pool.promiseQuery = (sql, params) =>
-  new Promise((res, rej) => pool.query(sql, params, (e, r) => e ? rej(e) : res(r)));
+  new Promise((res, rej) =>
+    pool.query(sql, params, (e, r) => (e ? rej(e) : res(r)))
+  )
 
-function initDatabase() {
+function initDatabase () {
   pool.getConnection((err, conn) => {
-    if (err) throw err;
-    console.log("DB Connected");
+    if (err) throw err
+    console.log('DB Connected')
     // Création des tables
     const ddl = [
       `CREATE TABLE IF NOT EXISTS auths (
@@ -51,14 +53,14 @@ function initDatabase() {
          id INT AUTO_INCREMENT PRIMARY KEY,
          content TEXT, record_date INT, record_time VARCHAR(10)
        );`
-    ].join("\n");
+    ].join('\n')
 
     conn.query(ddl, err => {
-      if (err) console.error("Init DB:", err);
-      else console.log("Tables are ready");
-      conn.release();
-    });
-  });
+      if (err) console.error('Init DB:', err)
+      else console.log('Tables are ready')
+      conn.release()
+    })
+  })
 }
 
-module.exports = { pool, initDatabase };
+module.exports = { pool, initDatabase }
