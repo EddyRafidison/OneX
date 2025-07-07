@@ -71,7 +71,7 @@ async function initDbIfEmpty () {
        );`,
       `CREATE TABLE IF NOT EXISTS common(
          id INT AUTO_INCREMENT PRIMARY KEY,
-         total_units_price VARCHAR(255) DEFAULT '0',
+         total_units_price  VARCHAR(255) DEFAULT '0',
          unit_price VARCHAR(255) DEFAULT '0',
          backed_units VARCHAR(255) DEFAULT '0',
          record_date INT, record_time VARCHAR(10)
